@@ -1,0 +1,73 @@
+name: Routine
+
+on:
+  schedule:
+    - cron: "*/15 4-20 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: routine
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Window
+        id: window
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          local_hour="$(TZ=Europe/Paris date +%H)"
+          if [ "$((10#$local_hour))" -ge 6 ] && [ "$((10#$local_hour))" -le 21 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Outside the configured window."
+          fi
+
+      - name: Load
+        if: steps.window.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.CONFIG_A }}
+          token: ${{ secrets.CONFIG_B }}
+          path: source
+          fetch-depth: 0
+
+      - name: Runtime
+        if: steps.window.outputs.enabled == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: source/requirements.txt
+
+      - name: Prepare
+        if: steps.window.outputs.enabled == 'true'
+        working-directory: source
+        run: bash .github/runtime.sh prepare
+
+      - name: Execute
+        if: steps.window.outputs.enabled == 'true'
+        working-directory: source
+        env:
+          CONFIG_C: ${{ secrets.CONFIG_C }}
+          CONFIG_D: ${{ secrets.CONFIG_D }}
+          CONFIG_E: ${{ secrets.CONFIG_E }}
+          CONFIG_F: ${{ secrets.CONFIG_F }}
+        run: bash .github/runtime.sh execute
+
+      - name: Finalize
+        if: always() && steps.window.outputs.enabled == 'true'
+        working-directory: source
+        run: bash .github/runtime.sh finalize
