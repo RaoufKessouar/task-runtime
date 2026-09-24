@@ -2,7 +2,9 @@ name: Routine
 
 on:
   schedule:
-    - cron: "*/15 4-20 * * *"
+    # Décalage de quelques minutes pour éviter les périodes les plus chargées
+    # du planificateur GitHub, tout en conservant quatre scans par heure.
+    - cron: "7,22,37,52 4-20 * * *"
   workflow_dispatch: {}
 
 permissions:
