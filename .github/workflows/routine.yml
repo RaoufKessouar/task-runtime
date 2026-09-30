@@ -63,6 +63,7 @@ jobs:
           CONFIG_D: ${{ secrets.CONFIG_D }}
           CONFIG_E: ${{ secrets.CONFIG_E }}
           CONFIG_F: ${{ secrets.CONFIG_F }}
+          CONFIG_G: ${{ secrets.CONFIG_G }}
         run: bash .github/runtime.sh execute
 
       - name: Finalize
