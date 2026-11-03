@@ -1,7 +1,15 @@
 name: Routine
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Run even if the current time slot was already completed
+        type: boolean
+        default: false
+  schedule:
+    - cron: '*/10 6-21 * * *'
+      timezone: Europe/Paris
 
 permissions:
   contents: read
@@ -19,13 +27,22 @@ jobs:
       - name: Window
         id: window
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_SCAN: ${{ inputs.force }}
         run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$FORCE_SCAN" = "true" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           local_hour="$(TZ=Europe/Paris date +%H)"
+          local_minute="$(TZ=Europe/Paris date +%M)"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$((10#$local_minute % 10))" -ne 0 ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Outside the automatic time slot."
+            exit 0
+          fi
           if [ "$((10#$local_hour))" -ge 6 ] && [ "$((10#$local_hour))" -le 21 ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
@@ -64,6 +81,7 @@ jobs:
           CONFIG_E: ${{ secrets.CONFIG_E }}
           CONFIG_F: ${{ secrets.CONFIG_F }}
           CONFIG_G: ${{ secrets.CONFIG_G }}
+          STAGE_RADAR_FORCE_SCAN: ${{ inputs.force }}
         run: bash .github/runtime.sh execute
 
       - name: Finalize
